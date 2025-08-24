@@ -23,7 +23,6 @@ def get_star_info(tic_id: str) -> dict:
             else "Not Available"
         )
 
-        # Alternative IDs (pipe-separated string → list)
         other_ids = []
         if 'IDS' in result_table.colnames:
             other_ids = result_table['IDS'][0].split('|')
