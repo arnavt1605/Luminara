@@ -1,0 +1,8 @@
+Flask
+numpy
+pandas
+lightkurve
+astroquery 
+torch
+joblib
+plotly
