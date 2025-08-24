@@ -1,0 +1,153 @@
+@font-face {
+  font-family: 'Audiowide';
+  src: url('/static/fonts/Audiowide-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.background-static {
+  background-color: rgb(29, 31, 33); 
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: -1;
+}
+
+body {
+  font-family: 'Audiowide', sans-serif;
+  color: #f0f0f0;
+}
+
+/* --- NEW: Main Dashboard Container --- */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1200px; /* Constrain width for better readability */
+  margin: 0 auto; /* Center the container */
+  padding: 90px 24px 24px;
+}
+
+.card {
+  background: rgba(35, 38, 41, 0.6); /* Slightly darker cards */
+  backdrop-filter: blur(15px);
+  border-radius: 10px; /* Sharper corners */
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1); /* Subtle border */
+  color: #f0f0f0;
+}
+
+/* --- Row 1: Star Info Bar --- */
+.info-bar {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 16px 24px;
+}
+.info-item {
+  text-align: center;
+}
+.info-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.info-value {
+  display: block;
+  font-size: 1.1rem;
+  margin-top: 4px;
+  color: #f0f0f0;
+}
+
+/* --- Row 4: Bottom Row Container --- */
+.bottom-row {
+  display: flex;
+  gap: 24px;
+  align-items: stretch; /* Make cards in this row equal height */
+}
+.score-card {
+  flex-basis: 380px; /* Fixed width for score card */
+  flex-shrink: 0;
+  text-align: center;
+}
+.histogram-card {
+  flex-grow: 1; /* Histogram takes remaining space */
+}
+
+/* --- Chart and Score Styles --- */
+.chart-container {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+}
+.chart-container > div {
+  flex-grow: 1;
+}
+.score-display {
+  position: relative;
+  display: inline-block;
+  margin-top: 15px;
+}
+.score-ring circle {
+  transition: stroke-dashoffset 0.8s ease-out, stroke 0.8s ease;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  stroke-width: 12px;
+  fill: transparent;
+}
+.score-ring-bg {
+  stroke: rgba(255, 255, 255, 0.1);
+}
+.score-ring-fg {
+  stroke-dasharray: 502.65;
+  stroke-dashoffset: 502.65;
+  stroke-linecap: round;
+}
+#score-value {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem;
+}
+
+/* --- NEW: Smooth Scroll Animation --- */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.scroll-animate {
+  opacity: 0; /* Hidden by default */
+}
+.scroll-animate.visible {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* --- Navbar (Unchanged) --- */
+.results-navbar {
+    position: fixed; top: 0; left: 0; width: 100%;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 24px; box-sizing: border-box; z-index: 100;
+    background: rgba(29, 31, 33, 0.7); backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.navbar-left .logo { height: 50px; width: auto; display: block; }
+.navbar-right { display: flex; align-items: center; gap: 24px; }
+#display-tic-id { color: #ccc; font-size: 1rem; letter-spacing: 0.5px; }
+.btn-new-search {
+    text-decoration: none; color: #222; background-color: #f5f5dc;
+    padding: 8px 16px; border-radius: 6px; font-weight: bold;
+    text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px;
+    transition: all 0.3s ease;
+}
+.btn-new-search:hover {
+    background-color: #e6e6c8; transform: translateY(-2px);
+}

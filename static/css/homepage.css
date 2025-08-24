@@ -1,0 +1,157 @@
+/* Reset */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: white;
+}
+
+/* Background video */
+.bg-video {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%); /* Center the video */
+  z-index: -1;
+  object-fit: cover; /* Ensures full coverage without distortion */
+  background: black;
+}
+
+@font-face {
+  font-family: 'Audiowide';
+  src: url('/static/fonts/Audiowide-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+/* Navbar */
+.logo {
+  position: fixed;
+  top: 15px;   /* small margin from top */
+  left: 20px;  /* small margin from left */
+  z-index: 10;
+}
+
+.logo img {
+  height: 65px;  /* keep enlarged */
+  width: auto;
+}
+
+/* Hero Section */
+.hero {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.hero-title {
+  max-width: 600px;   /* was 400px */
+  width: 90%;         /* scale responsively */
+  margin-bottom: 35px;
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between; /* equal spacing between items */
+  height: 120px; /* adjust depending on how much space you want */
+}
+
+/* Tagline styling */
+.tagline {
+  font-family: 'Audiowide', sans-serif;
+  font-size: 1.10rem;
+  max-width: 620px;       /* controls wrapping */
+  min-height: 3.6em;      /* reserve ~2 lines height (so input box never jumps) */
+  margin: 0 auto;
+  color: #f0f0f0;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+  line-height: 1.5;
+  text-align: center;
+  white-space: normal;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  position: relative;
+}
+
+/* cursor while typing */
+.tagline::after {
+  content: "|";
+  margin-left: 5px;
+  animation: blink 0.8s infinite;
+  opacity: 0.8;
+}
+
+.tagline.done::after {
+  content: "";
+  animation: none;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  50.1%, 100% { opacity: 0; }
+}
+
+/* Input Card */
+.input-card {
+  padding: 20px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  display: inline-block;
+  /* removed blue glow */
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.input-card input {
+  width: 250px;
+  padding: 12px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 8px;
+  outline: none;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  text-align: center;
+  /* removed blue glow */
+  box-shadow: none;
+  font-family: 'Audiowide', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.input-card input::placeholder {
+  color: #bbb;
+}
+
+.input-card button {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  background: #f5f5dc;   /* beige / off-white */
+  color: #222;           /* dark text for contrast */
+  transition: 0.3s;
+  box-shadow: 0 0 10px rgba(245, 245, 220, 0.4);
+  font-family: 'Audiowide', sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.input-card button:hover {
+  background: #e6e6c8;   /* slightly deeper beige on hover */
+  box-shadow: 0 0 14px rgba(230, 230, 200, 0.6);
+}
+
+

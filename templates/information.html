@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Analysis Dashboard</title>
+  <link rel="stylesheet" href="/static/css/information.css">
+  <link rel="icon" type="x-icon" href="/static/image/favicon.ico">
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <div class="background-static"></div>
+
+  <nav class="results-navbar">
+    <div class="navbar-left">
+        <img src="/static/image/logo.png" alt="Luminara Logo" class="logo">
+    </div>
+    <div class="navbar-right">
+        <span id="display-tic-id">Analyzing...</span>
+        <a href="{{ url_for('home') }}" class="btn-new-search">New Search</a>
+    </div>
+  </nav>
+
+  <main class="dashboard-container">
+
+    <section class="card info-bar scroll-animate">
+      <div class="info-item">
+        <span class="info-label">Star Name</span>
+        <span id="info-star-name" class="info-value"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">TIC ID</span>
+        <span id="info-tic-id" class="info-value"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">RA</span>
+        <span id="info-ra" class="info-value"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Dec</span>
+        <span id="info-dec" class="info-value"></span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Spectral Type</span>
+        <span id="info-spectral-type" class="info-value"></span>
+      </div>
+    </section>
+
+    <section class="chart-container card scroll-animate">
+      <h4>Light Curve (Flux vs. Time)</h4>
+      <div id="full-light-curve-plot"></div>
+    </section>
+
+    <section class="chart-container card scroll-animate">
+      <h4>CNN Saliency Overlay</h4>
+      <div id="saliency-plot"></div>
+    </section>
+
+    <div class="bottom-row scroll-animate">
+      <div class="card score-card">
+        <h3>Exoplanet Confidence Score</h3>
+        <div class="score-display">
+          <svg class="score-ring" width="180" height="180">
+              <circle class="score-ring-bg" r="80" cx="90" cy="90" />
+              <circle class="score-ring-fg" r="80" cx="90" cy="90" />
+          </svg>
+          <span id="score-value">0%</span>
+        </div>
+      </div>
+      <div class="chart-container card histogram-card">
+        <h4>Brightness Distribution</h4>
+        <div id="histogram-plot"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Embedded JS with IIFE to avoid redeclaration issues -->
+  <script>
+  (function() {
+      // Inject Python variables safely via Jinja2
+        const flux = JSON.parse('{{ flux | tojson }}');
+        const saliency = JSON.parse('{{ saliency | tojson }}');
+        const confidence = JSON.parse('{{ confidence | tojson }}');
+        const starInfo = JSON.parse('{{ star_info | tojson }}');
+        const ticId = '{{ tic_id }}';
+
+      document.addEventListener("DOMContentLoaded", () => {
+          // Info bar
+          document.getElementById('display-tic-id').innerText = `Analysis for TIC ${ticId}`;
+          document.getElementById('info-star-name').innerText = starInfo.starName;
+          document.getElementById('info-tic-id').innerText = ticId;
+          document.getElementById('info-ra').innerText = starInfo.ra;
+          document.getElementById('info-dec').innerText = starInfo.dec;
+          document.getElementById('info-spectral-type').innerText = starInfo.spectralType;
+
+          // Update confidence score ring
+          updateScoreCircle(confidence);
+
+          // Plot the charts
+          updateDashboard(flux, saliency);
+
+          // Smooth scroll animation
+          initScrollAnimations();
+      });
+
+      function updateScoreCircle(score) {
+          const circle = document.querySelector('.score-ring-fg');
+          const scoreValueText = document.getElementById('score-value');
+          const radius = circle.r.baseVal.value;
+          const circumference = 2 * Math.PI * radius;
+          const offset = circumference - score * circumference;
+          circle.style.strokeDasharray = circumference;
+          circle.style.strokeDashoffset = offset;
+          if (score > 0.7) circle.style.stroke = '#4CAF50';
+          else if (score > 0.4) circle.style.stroke = '#FFC107';
+          else circle.style.stroke = '#F44336';
+          scoreValueText.innerText = `${Math.round(score * 100)}%`;
+      }
+
+      function updateDashboard(flux, saliency) {
+          const indices = Array.from({length: flux.length}, (_, i) => i);
+
+          const plotLayout = {
+              paper_bgcolor: 'rgba(0,0,0,0)',
+              plot_bgcolor: 'rgba(0,0,0,0.2)',
+              font: { color: '#f0f0f0', family: 'Audiowide, sans-serif' },
+              xaxis: { gridcolor: 'rgba(255, 255, 255, 0.1)', title: 'Index' },
+              yaxis: { gridcolor: 'rgba(255, 255, 255, 0.1)', title: 'Flux' }
+          };
+
+          // Light curve plot
+          Plotly.newPlot('full-light-curve-plot', [{ x: indices, y: flux, mode: 'lines', line: { color: '#f5f5dc' } }], plotLayout);
+
+          // Histogram
+          Plotly.newPlot('histogram-plot', [{ x: flux, type: 'histogram', marker: { color: '#f5f5dc' } }], { 
+              ...plotLayout, 
+              yaxis: { ...plotLayout.yaxis, title: 'Count' }, 
+              xaxis: { ...plotLayout.xaxis, title: 'Flux' } 
+          });
+
+          // Saliency overlay
+          const maxIdx = saliency.indexOf(Math.max(...saliency));
+          const saliencyShapes = [{
+              type: 'rect', xref: 'x', yref: 'paper',
+              x0: maxIdx - 5, x1: maxIdx + 5, y0: 0, y1: 1,
+              fillcolor: 'rgba(255, 204, 0, 0.3)', line: { width: 0 }
+          }];
+
+          Plotly.newPlot('saliency-plot', [{ x: indices, y: flux, mode: 'lines', line: { color: '#f5f5dc' } }], { ...plotLayout, shapes: saliencyShapes });
+      }
+
+      function initScrollAnimations() {
+          const animatedElements = document.querySelectorAll('.scroll-animate');
+          const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                  if (entry.isIntersecting) {
+                      entry.target.classList.add('visible');
+                      observer.unobserve(entry.target);
+                  }
+              });
+          }, { threshold: 0.1 });
+          animatedElements.forEach(el => observer.observe(el));
+      }
+  })();
+  </script>
+
+</body>
+</html>
