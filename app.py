@@ -4,17 +4,30 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import base64  # NEW: Import base64 library to handle images
+from pathlib import Path # NEW: To handle file paths cleanly
 
-# (Assuming these helper files are in the same directory)
+# --- Your Original Imports ---
 from lc_fetcher import fetch_lightcurve
 from process_and_reshape import process_lightcurve
 from star_info import get_star_info
 
-
-# --- CONFIGURATION ---
+# --- Model and Asset Paths ---
 MODEL_PATH = "models/model.pth"
 TEMP_PATH = "models/temperature.npy"
+# NEW: Define paths for your new image assets
+LOGO_PATH = "logo.png"
+BACKGROUND_PATH = "background.jpeg"
 
+
+# NEW: Helper function to read an image file and convert it to a Base64 string
+def get_image_as_base64(file_path):
+    """Reads an image file and returns its Base64 encoded string."""
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+# --- Your Original CNN Model Definition ---
 class CNN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -45,13 +58,112 @@ class CNN(nn.Module):
         x= self.classifier(x).squeeze(1)
         return x
 
-# --- 2. Define Helper Functions ---
+# --- App Configuration ---
+st.set_page_config(
+    page_title="Luminara",
+    layout="wide",
+    page_icon="✨"
+)
+
+# --- MODIFIED: Function to add static background and custom CSS ---
+def add_bg_and_css(background_image_b64):
+    """Injects CSS for static background, custom fonts, and modern UI."""
+    st.markdown(f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Roboto:wght@400;700&display=swap');
+
+    /* --- STATIC IMAGE BACKGROUND (USING BASE64)--- */
+    .stApp {{
+        background-image: url("data:image/jpeg;base64,{background_image_b64}");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    
+    .stApp::before {{
+        content: "";
+        position: fixed;
+        left: 0; right: 0; top: 0; bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: -1;
+    }}
+
+    /* --- Base Font --- */
+    html, body, [class*="st-"] {{
+        font-family: 'Roboto', sans-serif;
+        font-size: 16px;
+    }}
+
+    /* --- FONT FIX: Titles and Headers (Using !important to force override) --- */
+    .main-title {{
+        font-family: 'Audiowide', cursive !important;
+        font-size: 5.5rem;
+        color: #FFFFFF;
+        text-align: center;
+        text-shadow: 0 0 20px #9370DB, 0 0 30px #9370DB;
+        padding: 20px 0;
+    }}
+    
+    h3 {{
+        font-family: 'Audiowide', cursive !important;
+        color: #E0E0E0;
+        border-bottom: 2px solid #9370DB;
+        padding-bottom: 10px;
+        margin-top: 10px;
+    }}
+
+    /* --- Modern Obsidian Card Effect --- */
+    .glass-card {{
+        background: rgba(10, 10, 20, 0.8);
+        backdrop-filter: blur(5px);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 25px;
+        margin-bottom: 25px;
+    }}
+    
+    /* --- Custom Metrics Styling --- */
+    .info-container {{
+        display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;
+    }}
+    .info-metric {{
+        flex: 1 1 150px; text-align: center; padding: 12px; border-radius: 10px;
+        background: rgba(147, 112, 219, 0.15);
+    }}
+    .info-metric-label {{ font-size: 1rem; color: #B0B0B0; margin-bottom: 5px; }}
+    .info-metric-value {{ font-size: 1.3rem; font-weight: bold; color: #FFFFFF; word-wrap: break-word; }}
+
+    /* --- Confidence Score Styling --- */
+    .confidence-score {{ font-family: 'Audiowide', cursive !important; font-size: 5rem; }}
+    .confidence-verdict {{ font-size: 1.2rem; }}
+    
+    /* --- Expander Styling --- */
+    .stExpander {{
+        border: none;
+        background: rgba(147, 112, 219, 0.1);
+        border-radius: 10px;
+    }}
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- Plotly Template ---
+astro_template = {
+    "layout": go.Layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(10, 25, 47, 0.85)',
+        font={'color': '#f0f0f0', 'family': 'Roboto', 'size': 14},
+        xaxis={'gridcolor': 'rgba(255, 255, 255, 0.1)', 'linecolor': 'rgba(255, 255, 255, 0.3)'},
+        yaxis={'gridcolor': 'rgba(255, 255, 255, 0.1)', 'linecolor': 'rgba(255, 255, 255, 0.3)'},
+        legend={'bgcolor': 'rgba(0,0,0,0)', 'font': {'color': '#f0f0f0'}},
+    )
+}
+
+# --- Your Original Model Loading & Prediction Functions ---
 @st.cache_resource
 def load_model():
-    """Loads the trained model and temperature from files."""
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = CNN()
-    checkpoint = torch.load("models/model.pth", map_location=device)
+    checkpoint = torch.load(MODEL_PATH, map_location=device)
     model.load_state_dict(checkpoint["model"])
     model.to(device)
     model.eval()
@@ -60,7 +172,6 @@ def load_model():
     return model, temperature, device
 
 def predict_with_saliency(model, flux, temperature, device):
-    """Performs prediction with on-the-fly normalization."""
     flux_np = np.array(flux, dtype=np.float32)
     median = np.median(flux_np)
     flux_centered = flux_np - median
@@ -78,99 +189,100 @@ def predict_with_saliency(model, flux, temperature, device):
     saliency = x.grad.detach().abs().squeeze().cpu().numpy()
     return confidence, saliency.tolist()
 
-# --- 3. Build the User Interface ---
-
-# --- Page Configuration ---
-st.set_page_config(page_title="Exo-Planet Analyzer", layout="wide", page_icon="🛰️")
-
-# --- Load Model ---
+# --- Main App ---
+# NEW: Load images as Base64 strings
+try:
+    logo_b64 = get_image_as_base64(LOGO_PATH)
+    bg_b64 = get_image_as_base64(BACKGROUND_PATH)
+except FileNotFoundError:
+    st.error("Asset files not found. Please ensure 'logo.png' and 'background.jpg' are in an 'assets' folder.")
+    st.stop()
+    
+add_bg_and_css(bg_b64)
 model, temperature, device = load_model()
 
-# --- Header and Title ---
-st.title("🛰️ Exo-Planet Saliency Analyzer")
-st.write("Enter a TESS Input Catalog (TIC) ID to analyze its light curve for exoplanet candidates.")
+# MODIFIED: Replace the text title with the centered logo image
+st.markdown(
+    f"""
+    <div style="text-align: center; margin-top: -50px;">
+        <img src="data:image/png;base64,{logo_b64}" alt="Luminara Logo" width="600">
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# --- Input Form ---
-tic_id = st.text_input("Enter TIC ID (e.g., 'TIC 92226327')", "")
+st.markdown("<div style='text-align: center; color: #B0B0B0; font-size: 1.2rem; margin-top:-20px; margin-bottom: 40px;'>AI-powered exoplanet candidate analysis from TESS light curves.</div>", unsafe_allow_html=True)
 
-if st.button("Analyze"):
-    if not tic_id:
-        st.error("Please enter a TIC ID.")
-    else:
-        with st.spinner(f"Fetching and analyzing data for {tic_id}..."):
-            try:
-                # --- Data Fetching and Prediction ---
-                raw_csv = fetch_lightcurve(tic_id)
-                processed_csv = process_lightcurve(raw_csv)
-                df = pd.read_csv(processed_csv)
-                flux = df.drop("LABEL", axis=1).values.flatten()
-                
-                confidence, saliency = predict_with_saliency(model, flux, temperature, device)
-                star_info = get_star_info(tic_id)
-                
-                st.success(f"Analysis complete for {tic_id}!")
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    with st.form(key='tic_form'):
+        tic_id = st.text_input("Enter TIC ID", placeholder="e.g., TIC 92226327", label_visibility="collapsed")
+        analyze_button = st.form_submit_button("Analyze Candidate", use_container_width=True)
 
-                # --- Info Bar ---
-                cols = st.columns(5)
-                cols[0].metric("Star Name", star_info.get('starName', 'N/A'))
-                cols[1].metric("TIC ID", tic_id)
-                cols[2].metric("RA", star_info.get('ra', 'N/A'))
-                cols[3].metric("Dec", star_info.get('dec', 'N/A'))
-                cols[4].metric("Spectral Type", star_info.get('spectralType', 'N/A'))
-                
-                # --- Plotly Chart Layout ---
-                plot_layout = {
-                    'paper_bgcolor': 'rgba(0,0,0,0)',
-                    'plot_bgcolor': 'rgba(42, 42, 60, 0.8)',
-                    'font': {'color': '#f0f0f0', 'family': 'sans-serif'},
-                    'xaxis': {'gridcolor': 'rgba(255, 255, 255, 0.1)'},
-                    'yaxis': {'gridcolor': 'rgba(255, 255, 255, 0.1)'}
-                }
+if analyze_button and tic_id:
+    with st.spinner(f"Contacting Deep Space Network... Analyzing {tic_id}..."):
+        try:
+            raw_csv = fetch_lightcurve(tic_id)
+            processed_csv = process_lightcurve(raw_csv)
+            df = pd.read_csv(processed_csv)
+            flux = df.drop("LABEL", axis=1).values.flatten()
+            
+            confidence, saliency = predict_with_saliency(model, flux, temperature, device)
+            star_info = get_star_info(tic_id)
+            
+            st.success(f"Analysis complete for {tic_id}!")
+            
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                st.markdown('<div class="glass-card confidence-card">', unsafe_allow_html=True)
+                if confidence > 0.8: color, verdict = "#2EFEF7", "High Confidence"
+                elif confidence > 0.5: color, verdict = "#FFD700", "Potential Candidate"
+                else: color, verdict = "#FF6347", "Unlikely Candidate"
+                st.markdown(f'<p class="confidence-score" style="color:{color}; text-shadow: 0 0 15px {color}80;">{confidence:.1%}</p>', unsafe_allow_html=True)
+                st.markdown(f'<p class="confidence-verdict">{verdict}</p>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                # --- Light Curve Plot ---
-                st.subheader("Light Curve (Flux vs. Time)")
-                fig_lc = go.Figure(data=go.Scatter(y=flux, mode='lines', line=dict(color='#f5f5dc')))
-                # Add the rangeslider here
-                fig_lc.update_layout(**plot_layout, xaxis_title='Time Index', yaxis_title='Flux', xaxis_rangeslider_visible=True)
-                st.plotly_chart(fig_lc, use_container_width=True)
-                
-                # --- Saliency Overlay Plot ---
-                st.subheader("CNN Saliency Overlay")
-                fig_sal = go.Figure(data=go.Scatter(y=flux, mode='lines', line=dict(color='#f5f5dc')))
-                max_saliency_idx = np.argmax(saliency)
-                fig_sal.add_shape(type="rect",
-                                xref="x", yref="paper",
-                                x0=max_saliency_idx - 10, x1=max_saliency_idx + 10, y0=0, y1=1,
-                                fillcolor="rgba(255, 204, 0, 0.4)", line=dict(width=0))
-                # Add the rangeslider here as well
-                fig_sal.update_layout(**plot_layout, title="Model Attention Highlighted", xaxis_title='Time Index', yaxis_title='Flux', xaxis_rangeslider_visible=True)
-                st.plotly_chart(fig_sal, use_container_width=True)
+            with col2:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                st.markdown('<h3>Stellar Information</h3>', unsafe_allow_html=True)
+                info_html = f"""<div class="info-container">
+                    <div class="info-metric"><div class="info-metric-label">Star Name</div><div class="info-metric-value">{star_info.get('starName', 'N/A')}</div></div>
+                    <div class="info-metric"><div class="info-metric-label">TIC ID</div><div class="info-metric-value">{tic_id}</div></div>
+                    <div class="info-metric"><div class="info-metric-label">Right Ascension</div><div class="info-metric-value">{star_info.get('ra', 'N/A')}</div></div>
+                    <div class="info-metric"><div class="info-metric-label">Declination</div><div class="info-metric-value">{star_info.get('dec', 'N/A')}</div></div>
+                    <div class="info-metric"><div class="info-metric-label">Spectral Type</div><div class="info-metric-value">{star_info.get('spectralType', 'N/A')}</div></div>
+                </div>"""
+                st.markdown(info_html, unsafe_allow_html=True)
+                with st.expander("**Glossary**"):
+                    st.markdown("- **RA & Dec:** Celestial coordinates, like longitude and latitude, that locate the star in the sky.\n- **Spectral Type:** Classifies a star by its temperature. (O, B, A, F, G, K, M) goes from hottest to coolest.")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-                # --- Bottom Row: Confidence Score and Histogram ---
-                col1, col2 = st.columns([1, 2]) # Give more space to the histogram
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("<h3>Light Curve Analysis</h3>", unsafe_allow_html=True)
+            st.markdown("This plot shows the star's brightness over time. A brief, periodic dip (a **'transit'**) can indicate a planet passing in front of its star.")
+            fig_lc = go.Figure(data=go.Scatter(y=flux, mode='lines', line=dict(color='#2EFEF7', width=2)))
+            fig_lc.update_layout(template=astro_template, title="Light Curve (Flux vs. Time)", xaxis_title='Time Index', yaxis_title='Normalized Flux', xaxis_rangeslider_visible=True)
+            st.plotly_chart(fig_lc, use_container_width=True)
 
-                with col1:
-                    st.subheader("Exoplanet Confidence Score")
-                    # Using a Plotly Gauge for the score circle
-                    gauge_color = "#4CAF50" if confidence > 0.7 else "#FFC107" if confidence > 0.4 else "#F44336"
-                    fig_gauge = go.Figure(go.Indicator(
-                        mode = "gauge+number",
-                        value = confidence * 100,
-                        number = {'suffix': "%", 'font': {'size': 40}},
-                        gauge = {'axis': {'range': [None, 100]},
-                                 'bar': {'color': gauge_color},
-                                 'threshold' : {'line': {'color': "red", 'width': 4}, 'thickness': 0.75, 'value': 50}},
-                        domain = {'x': [0, 1], 'y': [0, 1]}
-                    ))
-                    fig_gauge.update_layout(paper_bgcolor = "rgba(0,0,0,0)", font = {'color': "white"}, height=250)
-                    st.plotly_chart(fig_gauge, use_container_width=True)
+            st.markdown("<h3>CNN Saliency Map</h3>", unsafe_allow_html=True)
+            st.markdown("This chart reveals **what the AI model focused on**. The highlighted rectangular area shows the data points most influential in its decision.")
+            
+            fig_sal = go.Figure(data=go.Scatter(y=flux, mode='lines', line=dict(color='#2EFEF7')))
+            max_saliency_idx = np.argmax(saliency)
+            fig_sal.add_shape(type="rect", xref="x", yref="paper", x0=max_saliency_idx - 20, x1=max_saliency_idx + 20, y0=0, y1=1, fillcolor="rgba(255, 215, 0, 0.4)", line=dict(width=0))
+            fig_sal.update_layout(template=astro_template, title="Model Attention Highlighted", xaxis_title='Time Index', yaxis_title='Flux', xaxis_rangeslider_visible=True)
+            st.plotly_chart(fig_sal, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            st.markdown("<h3>Final Summary & Conclusion</h3>", unsafe_allow_html=True)
+            if confidence > 0.8: summary_text = f"**Verdict: Strong Candidate.** 🟢\n\nWith a high confidence of **{confidence:.1%}**, the AI found strong evidence of a transit. The saliency map confirms the model focused on a distinct dip in the light curve. This is a prime candidate for follow-up observation."
+            elif confidence > 0.5: summary_text = f"**Verdict: Potential Candidate.** 🟡\n\nThe model returned a score of **{confidence:.1%}**, indicating some transit-like features but with potential ambiguity. This could be due to noise or a weak signal. This candidate requires further investigation."
+            else: summary_text = f"**Verdict: Unlikely Candidate.** 🔴\n\nA low score of **{confidence:.1%}** suggests the model found no clear evidence of a transit. The light curve may be dominated by stellar variability or noise. It's unlikely this star hosts a transiting exoplanet based on this data."
+            st.markdown(summary_text)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-                with col2:
-                    st.subheader("Brightness Distribution")
-                    fig_hist = go.Figure(data=[go.Histogram(x=flux, marker_color='#f5f5dc')])
-                    fig_hist.update_layout(**plot_layout, xaxis_title='Flux', yaxis_title='Count')
-                    st.plotly_chart(fig_hist, use_container_width=True)
-
-            except Exception as e:
-                st.error(f"An error occurred: {e}")
-                st.exception(e) # This will print the full traceback
+        except Exception as e:
+            st.error(f"An error occurred during analysis: {e}")
+elif analyze_button and not tic_id:
+    st.error("Please enter a TIC ID to begin analysis.")
