@@ -4,30 +4,23 @@ import torch.nn as nn
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import base64  # NEW: Import base64 library to handle images
-from pathlib import Path # NEW: To handle file paths cleanly
+import base64
+from pathlib import Path
 
-# --- Your Original Imports ---
 from lc_fetcher import fetch_lightcurve
 from process_and_reshape import process_lightcurve
 from star_info import get_star_info
 
-# --- Model and Asset Paths ---
 MODEL_PATH = "models/model.pth"
 TEMP_PATH = "models/temperature.npy"
-# NEW: Define paths for your new image assets
 LOGO_PATH = "logo.png"
 BACKGROUND_PATH = "background.jpeg"
 
-
-# NEW: Helper function to read an image file and convert it to a Base64 string
 def get_image_as_base64(file_path):
-    """Reads an image file and returns its Base64 encoded string."""
     with open(file_path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
-# --- Your Original CNN Model Definition ---
 class CNN(nn.Module):
     def __init__(self):
         super().__init__()
@@ -58,19 +51,22 @@ class CNN(nn.Module):
         x= self.classifier(x).squeeze(1)
         return x
 
-# --- App Configuration ---
 st.set_page_config(
     page_title="Luminara",
     layout="wide",
     page_icon="✨"
 )
 
-# --- MODIFIED: Function to add static background and custom CSS ---
 def add_bg_and_css(background_image_b64):
     """Injects CSS for static background, custom fonts, and modern UI."""
     st.markdown(f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Roboto:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Audiowide&family=Roboto:wght@400;700&family=Orbitron:wght@700&display=swap');
+
+    /* --- HIDE THE STREAMLIT HEADER --- */
+    header {{
+        visibility: hidden;
+    }}
 
     /* --- STATIC IMAGE BACKGROUND (USING BASE64)--- */
     .stApp {{
@@ -93,23 +89,16 @@ def add_bg_and_css(background_image_b64):
         font-family: 'Roboto', sans-serif;
         font-size: 16px;
     }}
-
-    /* --- FONT FIX: Titles and Headers (Using !important to force override) --- */
-    .main-title {{
-        font-family: 'Audiowide', cursive !important;
-        font-size: 5.5rem;
-        color: #FFFFFF;
-        text-align: center;
-        text-shadow: 0 0 20px #9370DB, 0 0 30px #9370DB;
-        padding: 20px 0;
-    }}
     
+    /* --- Header font --- */
     h3 {{
-        font-family: 'Audiowide', cursive !important;
+        font-family: 'Orbitron', sans-serif !important;
         color: #E0E0E0;
         border-bottom: 2px solid #9370DB;
         padding-bottom: 10px;
         margin-top: 10px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
     }}
 
     /* --- Modern Obsidian Card Effect --- */
@@ -133,20 +122,37 @@ def add_bg_and_css(background_image_b64):
     .info-metric-label {{ font-size: 1rem; color: #B0B0B0; margin-bottom: 5px; }}
     .info-metric-value {{ font-size: 1.3rem; font-weight: bold; color: #FFFFFF; word-wrap: break-word; }}
 
-    /* --- Confidence Score Styling --- */
-    .confidence-score {{ font-family: 'Audiowide', cursive !important; font-size: 5rem; }}
-    .confidence-verdict {{ font-size: 1.2rem; }}
-    
-    /* --- Expander Styling --- */
-    .stExpander {{
-        border: none;
-        background: rgba(147, 112, 219, 0.1);
-        border-radius: 10px;
+    /* --- MODIFIED: Styles for Circular Progress Indicator --- */
+    .progress-circle {{
+        position: relative;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        margin: 0 auto 15px auto; /* Center the circle */
+        box-shadow: 0 0 25px rgba(147, 112, 219, 0.4);
+    }}
+    .progress-circle::before {{
+        content: "";
+        position: absolute;
+        height: 86%;
+        width: 86%;
+        background-color: rgb(10, 10, 20); /* Match the glass-card bg */
+        border-radius: 50%;
+    }}
+    .progress-value {{
+        position: relative;
+        font-family: 'Audiowide', cursive;
+        font-size: 4rem; /* Enlarge the score text */
+    }}
+    .confidence-verdict {{
+        font-size: 1.2rem;
+        text-align: center;
     }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- Plotly Template ---
 astro_template = {
     "layout": go.Layout(
         paper_bgcolor='rgba(0,0,0,0)',
@@ -158,7 +164,6 @@ astro_template = {
     )
 }
 
-# --- Your Original Model Loading & Prediction Functions ---
 @st.cache_resource
 def load_model():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -189,29 +194,26 @@ def predict_with_saliency(model, flux, temperature, device):
     saliency = x.grad.detach().abs().squeeze().cpu().numpy()
     return confidence, saliency.tolist()
 
-# --- Main App ---
-# NEW: Load images as Base64 strings
 try:
     logo_b64 = get_image_as_base64(LOGO_PATH)
     bg_b64 = get_image_as_base64(BACKGROUND_PATH)
 except FileNotFoundError:
-    st.error("Asset files not found. Please ensure 'logo.png' and 'background.jpg' are in an 'assets' folder.")
+    st.error("Asset files not found. Please ensure 'logo.png' and 'background.jpeg' are in the same folder as your script.")
     st.stop()
     
 add_bg_and_css(bg_b64)
 model, temperature, device = load_model()
 
-# MODIFIED: Replace the text title with the centered logo image
 st.markdown(
     f"""
-    <div style="text-align: center; margin-top: -50px;">
+    <div style="text-align: center; padding-top: 20px;">
         <img src="data:image/png;base64,{logo_b64}" alt="Luminara Logo" width="600">
     </div>
     """,
     unsafe_allow_html=True
 )
 
-st.markdown("<div style='text-align: center; color: #B0B0B0; font-size: 1.2rem; margin-top:-20px; margin-bottom: 40px;'>AI-powered exoplanet candidate analysis from TESS light curves.</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: #B0B0B0; font-size: 1.2rem; margin-bottom: 40px;'>Unveiling hidden worlds through the whispers of starlight.</div>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
@@ -235,11 +237,20 @@ if analyze_button and tic_id:
             col1, col2 = st.columns([1, 2])
             with col1:
                 st.markdown('<div class="glass-card confidence-card">', unsafe_allow_html=True)
+                
                 if confidence > 0.8: color, verdict = "#2EFEF7", "High Confidence"
                 elif confidence > 0.5: color, verdict = "#FFD700", "Potential Candidate"
                 else: color, verdict = "#FF6347", "Unlikely Candidate"
-                st.markdown(f'<p class="confidence-score" style="color:{color}; text-shadow: 0 0 15px {color}80;">{confidence:.1%}</p>', unsafe_allow_html=True)
-                st.markdown(f'<p class="confidence-verdict">{verdict}</p>', unsafe_allow_html=True)
+                
+                progress_angle = confidence * 360
+                
+                progress_html = f"""
+                <div class="progress-circle" style="background: conic-gradient({color} {progress_angle}deg, rgba(147, 112, 219, 0.15) 0deg);">
+                    <div class="progress-value" style="color:{color}; text-shadow: 0 0 15px {color}80;">{confidence:.0%}</div>
+                </div>
+                <p class="confidence-verdict">{verdict}</p>
+                """
+                st.markdown(progress_html, unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
             with col2:
@@ -253,8 +264,13 @@ if analyze_button and tic_id:
                     <div class="info-metric"><div class="info-metric-label">Spectral Type</div><div class="info-metric-value">{star_info.get('spectralType', 'N/A')}</div></div>
                 </div>"""
                 st.markdown(info_html, unsafe_allow_html=True)
-                with st.expander("**Glossary**"):
-                    st.markdown("- **RA & Dec:** Celestial coordinates, like longitude and latitude, that locate the star in the sky.\n- **Spectral Type:** Classifies a star by its temperature. (O, B, A, F, G, K, M) goes from hottest to coolest.")
+                
+                st.markdown("<hr style='border-color: rgba(147, 112, 219, 0.3);'>", unsafe_allow_html=True)
+                st.markdown("""
+                **Glossary:**
+                - **RA & Dec:** Celestial coordinates, like longitude and latitude, that locate the star in the sky.
+                - **Spectral Type:** Classifies a star by its temperature (O, B, A, F, G, K, M) from hottest to coolest.
+                """)
                 st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
