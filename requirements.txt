@@ -1,8 +1,5 @@
-Flask
+streamlit
+torch
 numpy
 pandas
-lightkurve
-astroquery 
-torch
-joblib
 plotly
